@@ -1,6 +1,6 @@
-# LearnSphere – Smart Learning Platform (Frontend)
+# SkillWeave – Smart Learning Platform (Frontend)
 
-LearnSphere is a smart learning platform designed to provide personalized and interactive learning experiences. It helps students discover courses, access learning materials, attend assessments and track their learning progress.
+SkillWeave is a smart learning platform designed to provide personalized and interactive learning experiences. It helps students discover courses, access learning materials, attend assessments and track their learning progress.
 
 The platform focuses on identifying students' learning difficulties and providing personalized recommendations to help them improve.
 
