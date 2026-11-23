@@ -1,0 +1,142 @@
+
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+
+    width: min(690px, calc(100% - 32px));
+    height: 52px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    padding: 0 12px;
+
+    background: #050505;
+    border-radius: 0 0 18px 18px;
+}
+
+/* Brand */
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-shrink: 0;
+
+    text-decoration: none;
+    color: #fff;
+}
+
+.navbar-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: linear-gradient(
+        145deg,
+        #a5eaff 0%,
+        #3295ff 45%,
+        #2926ec 100%
+    );
+
+    box-shadow: 0 0 10px rgba(54, 145, 255, 0.3);
+}
+
+.navbar-logo-inner {
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.navbar-brand-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    letter-spacing: -0.3px;
+}
+
+/* Navigation links */
+
+.navbar-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 17px;
+}
+
+.navbar-links a {
+    color: #aaa;
+    text-decoration: none;
+
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+
+    transition: color 0.2s ease;
+}
+
+.navbar-links a:hover {
+    color: #fff;
+}
+
+/* CTA button */
+
+.navbar-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    padding: 8px 15px;
+
+    background: #fff;
+    color: #111;
+
+    border-radius: 8px;
+
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;}
+
+.navbar-cta:hover {
+    background: #e7e7e7;
+}
+
+/* Responsive */
+
+@media (max-width: 650px) {
+    .navbar {
+        gap: 10px;
+        padding: 0 10px;
+    }
+
+    .navbar-links {
+        display: none;
+    }
+
+    .navbar {
+        justify-content: space-between;
+    }
+}
+
+@media (max-width: 360px) {
+    .navbar-brand-name {
+        font-size: 12px;
+    }
+
+    .navbar-cta {
+        padding: 7px 10px;
+        font-size: 10px;
+    }
+}

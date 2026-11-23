@@ -1,0 +1,21 @@
+
+.home-page {
+    min-height: 100vh;
+    background: #050807;
+    color: white;
+    overflow: hidden;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    background: #050807;
+    font-family: Arial, sans-serif;
+}

@@ -1,0 +1,14 @@
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+.hero-heading {
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+}
+
+.hero-heading em {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-style: italic;
+}
