@@ -102,7 +102,6 @@ function StudentLayout() {
             <div className="topbar-search">
               <Search size={17} />
               <input type="text" placeholder="Search anything..." />
-              <span>⌘ K</span>
             </div>
 
             <button className="notification-btn">

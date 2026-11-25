@@ -27,6 +27,8 @@ import InstructorDashboard from './pages/instructor/InstructorDashboard'
 import InstructorCourses from './pages/instructor/InstructorCourses'
 import CreateCourse from './pages/instructor/CreateCourse'
 import InstructorStudents from './pages/instructor/InstructorStudents'
+import InstructorQuizzes from './pages/instructor/InstructorQuizzes'
+import CreateQuiz from './pages/instructor/CreateQuiz'
 
 function App() {
   return (
@@ -59,6 +61,8 @@ function App() {
               <Route path="courses" element={<InstructorCourses />} />
               <Route path="create-course" element={<CreateCourse />} />
               <Route path="students" element={<InstructorStudents />} />
+              <Route path="quizzes" element={<InstructorQuizzes />} />
+              <Route path="create-quiz" element={<CreateQuiz />} />
 
           </Route>
         </Routes>
