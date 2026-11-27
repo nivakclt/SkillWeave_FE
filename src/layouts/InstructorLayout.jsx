@@ -14,8 +14,18 @@ import {
   Search,
   Menu
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 function InstructorLayout() {
+  const { logout } = useAuth()
+const navigate = useNavigate()
+
+const handleLogout = () => {
+  logout()
+  navigate('/login', { replace: true })
+}
+
   const menuItems = [
     {
       name: 'Dashboard',
@@ -122,7 +132,8 @@ function InstructorLayout() {
             </div>
           </div>
 
-          <button className="instructor-logout">
+          <button onClick={handleLogout}
+           className="instructor-logout">
             <LogOut size={18} />
             <span>Logout</span>
           </button>

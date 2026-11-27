@@ -25,11 +25,28 @@ function Login() {
     e.preventDefault()
     try{
       const response = await axiosInstance.post('/login',formData)
+      const {token,user}=response.data
+
       // save authentication details
       localStorage.setItem('token',response.data.token)
-      localStorage.setItem('user',JSON.stringify(response.data.user))
-      toast.success(response.data.message || "Login Successfull")
-      navigate('/')
+      localStorage.setItem('user',JSON.stringify(user))
+
+    //   update authentication context
+    login(token,user)
+      toast.success("Login Successfull")
+
+        // Redirect based on the backend role
+    if (user.role === 'student') {
+      navigate('/student/dashboard')
+    } else if (user.role === 'instructor') {
+      navigate('/instructor/dashboard')
+    } else if (user.role === 'admin') {
+      navigate('/admin/dashboard')
+    } else {
+      toast.error('Unknown user role')
+    }
+
+      
     }catch(error){
       toast.error(
         error.response?.data?.message || 'Login Failed. Please try again.')

@@ -26,6 +26,9 @@ export function AuthProvider({children}){
                 localStorage.removeItem('user')
                 setUser(null)
             }
+            finally {
+            setLoading(false)
+            }
         }
         verifyUser()
     },[])

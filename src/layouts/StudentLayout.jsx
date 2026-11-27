@@ -11,24 +11,37 @@ import {
   GraduationCap,
   Bell,
   Search,
-  Menu
+  Menu,
+  ClipboardCheck
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { useState } from "react";
+
 
 function StudentLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const menuItems = [
-    { name: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
-    { name: 'My Courses', path: '/student/courses', icon: BookOpen },
-    { name: 'Explore Courses', path: '/student/browse', icon: Compass },
-    { name: 'My Progress', path: '/student/progress', icon: ChartNoAxesCombined },
-    { name: 'Learning Recovery', path: '/student/recovery', icon: Brain },
-    { name: 'My Profile', path: '/student/profile', icon: UserRound }
-  ]
+  { name: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
+  { name: 'My Courses', path: '/student/courses', icon: BookOpen },
+  { name: 'Explore Courses', path: '/student/browse', icon: Compass },
+  { name: 'My Progress', path: '/student/progress', icon: ChartNoAxesCombined },
+  { name: 'Learning Recovery', path: '/student/recovery', icon: Brain },
+  { name: 'Become an Instructor', path: '/student/instructor-application', icon: ClipboardCheck },
+  { name: 'My Profile', path: '/student/profile', icon: UserRound }
+]
+  const {logout}=useAuth()
+  const navigate = useNavigate()
+  const handleLogout = () =>{
+    logout()
+    navigate('/login',{replace:true})
+  }
 
   return (
     <div className="student-layout">
 
       {/* Sidebar */}
-      <aside className="student-sidebar">
+      <aside className={`student-sidebar ${sidebarOpen ? 'open' : ''}`}>
 
         <Link to="/" className="student-brand">
           <span className="student-brand-icon">
@@ -76,7 +89,8 @@ function StudentLayout() {
             </div>
           </div>
 
-          <button className="student-logout">
+          <button onClick={handleLogout}
+           className="student-logout">
             <LogOut size={18} />
             <span>Logout</span>
           </button>
@@ -89,7 +103,8 @@ function StudentLayout() {
 
         <header className="student-topbar">
           <div className="topbar-left">
-            <button className="mobile-menu">
+            <button onClick={()=>setSidebarOpen(!sidebarOpen)}
+             className="mobile-menu">
               <Menu size={21} />
             </button>
             <div>
