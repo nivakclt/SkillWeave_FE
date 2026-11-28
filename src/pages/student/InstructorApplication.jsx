@@ -1,131 +1,261 @@
 import { useEffect, useState } from 'react'
 import axiosInstance from '../../api/axiosInstance'
+import { useAuth } from '../../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
+
+const initialForm = {
+  teachingDomain: '',
+  qualifications: '',
+  experience: '',
+  portfolioUrl: '',
+  teachingIntroduction: ''
+}
 
 function InstructorApplication() {
   const [application, setApplication] = useState(null)
+  const [assessment, setAssessment] = useState(null)
+  const [answers, setAnswers] = useState([])
+  const [demoUrl, setDemoUrl] = useState('')
   const [loading, setLoading] = useState(true)
+  const [assessmentLoading, setAssessmentLoading] = useState(false)
+  const [applicationLoadError, setApplicationLoadError] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+  const [retaking, setRetaking] = useState(false)
   const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [form, setForm] = useState(initialForm)
 
-  const [form, setForm] = useState({
-    teachingDomain: '',
-    qualifications: '',
-    experience: '',
-    portfolioUrl: '',
-    teachingIntroduction: ''
-  })
+  const { refreshProfile } = useAuth()
+  const navigate = useNavigate()
 
-  const[assessment,setAssessment]=useState(null)
-  const[answers,setAnswers]=useState([])
-  const[demoUrl,setDemoUrl]=useState('')
-  const[actionloading,setActionLoading]=useState(false)
+  const getError = (err, fallback) => {
+    const data = err.response?.data
 
+    if (typeof data === 'string') return data
+    return data?.message || fallback
+  }
+
+  const clearFeedback = () => {
+    setMessage('')
+    setError('')
+  }
+
+  // Fetch the current application
   useEffect(() => {
-    const fetchApplication = async () => {
+    let active = true
+
+    async function fetchApplication() {
       try {
-        const res = await axiosInstance.get('/instructor/my-application')
-        setApplication(res.data.application)
-      } catch (error) {
-        if (error.response?.status !== 404) {
-          setMessage('Unable to load application')
+        const res = await axiosInstance.get(
+          '/instructor/my-application'
+        )
+
+        if (active) {
+          setApplication(res.data.application || null)
+        }
+      } catch (err) {
+        if (active && err.response?.status !== 404) {
+          setApplicationLoadError(
+            getError(err, 'Unable to load application')
+          )
         }
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
 
     fetchApplication()
+
+    return () => {
+      active = false
+    }
   }, [])
 
-  useEffect(()=>{
-    if(!application || application.status!=='pending')return
-    const fetchAssessment = async()=>{
-        try{
-            const res = await axiosInstance.get('/instructor/my-assessment')
-            setAssessment(res.data)
-        }catch(error){
-            if(error.response?.status!==404){
-                setMessage('Unable to Load Assessment')
-            }
-        }
+  // Fetch the assessment for a pending application
+  useEffect(() => {
+    if (application?.status !== 'pending') {
+      setAssessment(null)
+      return
     }
+
+    let active = true
+
+    async function fetchAssessment() {
+      setAssessmentLoading(true)
+
+      try {
+        const res = await axiosInstance.get(
+          '/instructor/my-assessment'
+        )
+
+        if (active) {
+          setAssessment(res.data.assessment ?? res.data)
+        }
+      } catch (err) {
+        if (active) {
+          setAssessment(null)
+
+          if (err.response?.status !== 404) {
+            setError(
+              getError(err, 'Unable to load assessment')
+            )
+          }
+        }
+      } finally {
+        if (active) setAssessmentLoading(false)
+      }
+    }
+
     fetchAssessment()
-  },[application])
+
+    return () => {
+      active = false
+    }
+  }, [application?.status])
+
+  // Refresh the authenticated user's role
+  const handleRefresh = async () => {
+    clearFeedback()
+    setActionLoading(true)
+
+    try {
+      const updatedUser = await refreshProfile()
+
+      if (updatedUser?.role === 'instructor') {
+        navigate('/instructor/dashboard', { replace: true })
+        return
+      }
+
+      setMessage('Your account is still a student account.')
+    } catch (err) {
+      setError(getError(err, 'Unable to refresh account status'))
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    const { name, value } = e.target
+
+    setForm(prev => ({
+      ...prev,
+      [name]: value
+    }))
   }
 
+  // Submit instructor application
   const handleSubmit = async (e) => {
     e.preventDefault()
+    clearFeedback()
+    setActionLoading(true)
 
     try {
-      const res = await axiosInstance.post('/instructor/apply', form)
+      const res = await axiosInstance.post(
+        '/instructor/apply',
+        form
+      )
+
+      if (!res.data.application) {
+        throw new Error('Application missing from server response')
+      }
+
       setApplication(res.data.application)
       setMessage('Application submitted successfully')
-    } catch (error) {
-      setMessage(
-        error.response?.data?.message ||
-        error.response?.data ||
-        'Application submission failed'
+    } catch (err) {
+      setError(getError(err, err.message || 'Application submission failed'))
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Select an assessment answer
+  const selectAnswer = (questionIndex, optionIndex) => {
+    setAnswers(prev => {
+      const updated = [...prev]
+      updated[questionIndex] = optionIndex
+      return updated
+    })
+  }
+
+  // Submit assessment answers
+  const handleAssessmentSubmit = async (e) => {
+    e.preventDefault()
+    clearFeedback()
+
+    const questions = assessment?.questions || []
+
+    if (
+      !questions.length ||
+      !questions.every((_, index) =>
+        Number.isInteger(answers[index])
       )
+    ) {
+      setError('Please answer all questions')
+      return
     }
-  }
 
-  const handleAssessmentSubmit = async(e)=>{
-    e.preventDefault()
-    if(answers.length!==assessment.questions.length||
-        !assessment.questions.every((_,i)=>
-    Number.isInteger(answers[i]))){
-        setMessage('Please answer all questions')
-        return
-    }
     setActionLoading(true)
+
     try {
-        const res = await axiosInstance.post('/instructor/submit-assessment',{answers})
-        setAssessment((prev)=>({
-            ...prev,score:res.data.score,
-            status:res.data.status
-        }))
-        setMessage('Assessment Submitted Successfully')
-    } catch (error) {
-        setMessage(error.response?.data?.message
-            ||error.response?.data ||
-            'Assessment submission failed'
-        )
-    }finally{
-        setActionLoading(false)
+      const res = await axiosInstance.post(
+        '/instructor/submit-assessment',
+        { answers }
+      )
+
+      setAssessment(prev => ({
+        ...prev,
+        score: res.data.score,
+        status: res.data.status,
+        attempts: res.data.attempts
+      }))
+
+      setRetaking(false)
+      setAnswers([])
+      setMessage('Assessment submitted successfully')
+    } catch (err) {
+      setError(getError(err, 'Assessment submission failed'))
+    } finally {
+      setActionLoading(false)
     }
   }
-  const handleDemoSubmit = async(e)=>{
+
+  // Submit teaching demo
+  const handleDemoSubmit = async (e) => {
     e.preventDefault()
+    clearFeedback()
     setActionLoading(true)
-     try {
-    const res = await axiosInstance.post(
-      '/instructor/submit-demo',
-      { teachingDemoUrl: demoUrl }
-    )
 
-    setApplication((prev) => ({
-      ...prev,
-      teachingDemoUrl: res.data.teachingDemoUrl
-    }))
+    try {
+      const res = await axiosInstance.post(
+        '/instructor/submit-demo',
+        { teachingDemoUrl: demoUrl.trim() }
+      )
 
-    setMessage('Teaching demo submitted successfully')
-  } catch (error) {
-    setMessage(
-      error.response?.data?.message ||
-      error.response?.data ||
-      'Teaching demo submission failed'
-    )
-  } finally {
-    setActionLoading(false)
-  }
-}
+      setApplication(prev => ({
+        ...prev,
+        teachingDemoUrl: res.data.teachingDemoUrl
+      }))
+
+      setMessage('Teaching demo submitted successfully')
+    } catch (err) {
+      setError(getError(err, 'Teaching demo submission failed'))
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   if (loading) {
     return <div className="ia-loading">Loading application...</div>
   }
+
+  const attempts = assessment?.attempts ?? 0
+  const submitted = assessment?.status === 'submitted'
+  const passed = submitted && assessment?.score >= 80
+
+  const canRetake =
+    submitted &&
+    assessment?.score < 80 &&
+    attempts < 3
 
   return (
     <div className="ia-page">
@@ -133,10 +263,9 @@ function InstructorApplication() {
         .ia-page {
           min-height: 100vh;
           background: #f4f7fc;
-          padding: 48px 20px;
-          font-family: 'Manrope', Arial, sans-serif;
+          padding: 40px 20px;
+          font-family: Manrope, Arial, sans-serif;
           color: #17233c;
-          box-sizing: border-box;
         }
 
         .ia-page * {
@@ -145,63 +274,34 @@ function InstructorApplication() {
 
         .ia-container {
           max-width: 850px;
-          margin: 0 auto;
+          margin: auto;
         }
 
         .ia-hero {
           background: linear-gradient(120deg, #172c70, #345ee9);
           color: white;
-          padding: 34px 36px;
+          padding: 32px;
           border-radius: 20px;
           margin-bottom: 24px;
-          box-shadow: 0 12px 30px rgba(37, 71, 160, 0.15);
-        }
-
-        .ia-tag {
-          display: inline-block;
-          background: rgba(255, 255, 255, 0.16);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          border-radius: 30px;
-          padding: 6px 13px;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 1px;
-          margin-bottom: 14px;
         }
 
         .ia-hero h1 {
-          font-size: clamp(26px, 4vw, 38px);
-          margin: 0 0 10px;
           color: white;
-          line-height: 1.2;
+          margin: 10px 0;
         }
 
         .ia-hero p {
-          margin: 0;
           color: #e0e8ff;
-          line-height: 1.7;
-          font-size: 15px;
+          line-height: 1.6;
         }
 
         .ia-card {
           background: white;
           border: 1px solid #e0e6f0;
           border-radius: 20px;
-          padding: 32px;
+          padding: 28px;
+          margin-bottom: 20px;
           box-shadow: 0 8px 28px rgba(30, 50, 90, 0.06);
-        }
-
-        .ia-card h2 {
-          font-size: 23px;
-          margin: 0 0 8px;
-          color: #17233c;
-        }
-
-        .ia-description {
-          margin: 0 0 26px;
-          color: #65738a;
-          font-size: 14px;
-          line-height: 1.6;
         }
 
         .ia-field {
@@ -210,289 +310,435 @@ function InstructorApplication() {
 
         .ia-field label {
           display: block;
-          font-size: 14px;
           font-weight: 700;
           margin-bottom: 8px;
-          color: #263650;
         }
 
         .ia-field input,
         .ia-field select,
         .ia-field textarea {
-          display: block;
           width: 100%;
-          padding: 13px 15px;
+          padding: 12px;
           border: 1px solid #d7dfeb;
           border-radius: 10px;
-          background: #f9fbfe;
-          color: #17233c;
           font: inherit;
-          font-size: 14px;
-          outline: none;
-          transition: border-color 0.2s, box-shadow 0.2s;
+          background: #f9fbfe;
         }
 
         .ia-field textarea {
-          min-height: 105px;
+          min-height: 100px;
           resize: vertical;
-        }
-
-        .ia-field input:focus,
-        .ia-field select:focus,
-        .ia-field textarea:focus {
-          border-color: #345ee9;
-          box-shadow: 0 0 0 3px rgba(52, 94, 233, 0.12);
-          background: white;
-        }
-
-        .ia-field input::placeholder,
-        .ia-field textarea::placeholder {
-          color: #8995a8;
         }
 
         .ia-button {
           width: 100%;
+          padding: 14px;
           border: 0;
-          border-radius: 11px;
-          padding: 15px 20px;
+          border-radius: 10px;
           background: #3158df;
           color: white;
-          font-size: 15px;
           font-weight: 700;
           cursor: pointer;
-          transition: background 0.2s, transform 0.2s;
+          margin-top: 10px;
         }
 
-        .ia-button:hover {
-          background: #2446c2;
-          transform: translateY(-1px);
+        .ia-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .ia-message,
+        .ia-error {
+          padding: 12px;
+          border-radius: 10px;
+          margin-bottom: 16px;
         }
 
         .ia-message {
-          background: #eef3ff;
-          color: #2544a3;
-          border: 1px solid #d4e0ff;
-          padding: 13px 16px;
-          border-radius: 10px;
-          margin-bottom: 20px;
-          font-size: 14px;
+          background: #e8f6ed;
+          color: #17653a;
+        }
+
+        .ia-error {
+          background: #ffe8e8;
+          color: #a52222;
         }
 
         .ia-status-row {
           display: flex;
-          align-items: center;
           justify-content: space-between;
           gap: 16px;
-          padding: 16px 0;
+          padding: 14px 0;
           border-bottom: 1px solid #e8edf5;
         }
 
-        .ia-status-row:last-child {
-          border-bottom: 0;
-        }
-
-        .ia-status-label {
-          font-size: 14px;
-          font-weight: 700;
-          color: #53627a;
-        }
-
-        .ia-status-value {
+        .ia-status-row span {
           text-align: right;
-          font-size: 14px;
-          color: #17233c;
           overflow-wrap: anywhere;
         }
 
-        .ia-badge {
-          display: inline-block;
-          padding: 6px 13px;
-          border-radius: 30px;
-          font-size: 12px;
-          font-weight: 700;
-          text-transform: capitalize;
+        .ia-question {
+          padding: 18px;
+          border: 1px solid #e0e6f0;
+          border-radius: 12px;
+          margin-bottom: 16px;
         }
 
-        .ia-badge.pending {
-          background: #fff3d6;
-          color: #946000;
-        }
-
-        .ia-badge.approved {
-          background: #dcf7e8;
-          color: #137443;
-        }
-
-        .ia-badge.rejected {
-          background: #ffe4e6;
-          color: #b42338;
+        .ia-option {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 0;
+          cursor: pointer;
         }
 
         .ia-loading {
-          min-height: 50vh;
-          display: grid;
-          place-items: center;
-          color: #3158df;
-          font: 600 16px Arial, sans-serif;
+          padding: 40px;
+          text-align: center;
         }
 
         @media (max-width: 600px) {
           .ia-page {
-            padding: 20px 12px;
+            padding: 16px 10px;
           }
 
-          .ia-hero, .ia-card {
-            padding: 22px 18px;
-            border-radius: 14px;
-          }
-
-          .ia-status-row {
-            align-items: flex-start;
+          .ia-card,
+          .ia-hero {
+            padding: 20px;
           }
         }
       `}</style>
 
       <div className="ia-container">
         <header className="ia-hero">
-          <span className="ia-tag">SKILLWEAVE · INSTRUCTOR</span>
+          <small>SKILLWEAVE · INSTRUCTOR</small>
           <h1>Become an Instructor</h1>
           <p>
-            Apply to share your knowledge and help SkillWeave learners
-            build their careers.
+            Apply to share your knowledge and help SkillWeave
+            learners build their careers.
           </p>
         </header>
 
-        <section className="ia-card">
-          {message && (
-            <div className="ia-message" role="status">
-              {typeof message === 'string'
-                ? message
-                : 'An unexpected error occurred'}
-            </div>
-          )}
+        {message && (
+          <div className="ia-message" role="status">
+            {message}
+          </div>
+        )}
 
-          {application ? (
-            <>
+        {error && (
+          <div className="ia-error" role="alert">
+            {error}
+          </div>
+        )}
+
+        {applicationLoadError && (
+          <div className="ia-error" role="alert">
+            {applicationLoadError}
+          </div>
+        )}
+
+        {!applicationLoadError && !application ? (
+          <section className="ia-card">
+            <h2>Instructor Application</h2>
+
+            <form onSubmit={handleSubmit}>
+              <div className="ia-field">
+                <label htmlFor="teachingDomain">
+                  Teaching Domain
+                </label>
+
+                <select
+                  id="teachingDomain"
+                  name="teachingDomain"
+                  value={form.teachingDomain}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select teaching domain</option>
+                  <option>Software & Web Development</option>
+                  <option>Cybersecurity</option>
+                  <option>Networking & Infrastructure</option>
+                  <option>Cloud Computing & DevOps</option>
+                  <option>Data Science & AI</option>
+                  <option>UI/UX Design</option>
+                  <option>Database Management</option>
+                  <option>Software Testing & QA</option>
+                </select>
+              </div>
+
+              <div className="ia-field">
+                <label htmlFor="qualifications">
+                  Qualifications
+                </label>
+
+                <input
+                  id="qualifications"
+                  name="qualifications"
+                  value={form.qualifications}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="ia-field">
+                <label htmlFor="experience">
+                  Teaching or Professional Experience
+                </label>
+
+                <textarea
+                  id="experience"
+                  name="experience"
+                  value={form.experience}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="ia-field">
+                <label htmlFor="portfolioUrl">
+                  Portfolio URL
+                </label>
+
+                <input
+                  id="portfolioUrl"
+                  name="portfolioUrl"
+                  type="url"
+                  value={form.portfolioUrl}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className="ia-field">
+                <label htmlFor="teachingIntroduction">
+                  Teaching Approach
+                </label>
+
+                <textarea
+                  id="teachingIntroduction"
+                  name="teachingIntroduction"
+                  value={form.teachingIntroduction}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <button
+                className="ia-button"
+                type="submit"
+                disabled={actionLoading}
+              >
+                {actionLoading
+                  ? 'Submitting...'
+                  : 'Submit Application'}
+              </button>
+            </form>
+          </section>
+        ) : application ? (
+          <>
+            <section className="ia-card">
               <h2>Application Status</h2>
-              <p className="ia-description">
-                Track your instructor application and admin feedback.
-              </p>
 
               <div className="ia-status-row">
-                <span className="ia-status-label">Teaching Domain</span>
-                <span className="ia-status-value">
-                  {application.teachingDomain}
-                </span>
+                <strong>Teaching Domain</strong>
+                <span>{application.teachingDomain}</span>
               </div>
 
               <div className="ia-status-row">
-                <span className="ia-status-label">Status</span>
-                <span className={`ia-badge ${application.status}`}>
-                  {application.status}
-                </span>
+                <strong>Status</strong>
+                <span>{application.status}</span>
               </div>
 
               <div className="ia-status-row">
-                <span className="ia-status-label">Admin Feedback</span>
-                <span className="ia-status-value">
+                <strong>Admin Feedback</strong>
+                <span>
                   {application.adminFeedback || 'No feedback yet'}
                 </span>
               </div>
-              <div className="ia-status-row">
-                <span className="ia-status-label">Admin Feedback</span>
-                <span className="ia-status-value">
-                    {application.adminFeedback || 'No feedback yet'}
-                </span>
-                </div>
-            </>
-          ) : (
-            <>
-              <h2>Instructor Application</h2>
-              <p className="ia-description">
-                Complete the details below to submit your application.
-              </p>
 
-              <form onSubmit={handleSubmit}>
-                <div className="ia-field">
-                  <label htmlFor="teachingDomain">Teaching Domain</label>
-                  <select
-                    id="teachingDomain"
-                    name="teachingDomain"
-                    value={form.teachingDomain}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Select teaching domain</option>
-                    <option>Software & Web Development</option>
-                    <option>Cybersecurity</option>
-                    <option>Networking & Infrastructure</option>
-                    <option>Cloud Computing & DevOps</option>
-                    <option>Data Science & AI</option>
-                    <option>UI/UX Design</option>
-                    <option>Database Management</option>
-                    <option>Software Testing & QA</option>
-                  </select>
-                </div>
+              <button
+                type="button"
+                className="ia-button"
+                onClick={handleRefresh}
+                disabled={actionLoading}
+              >
+                {actionLoading
+                  ? 'Refreshing...'
+                  : 'Refresh Account Status'}
+              </button>
+            </section>
 
-                <div className="ia-field">
-                  <label htmlFor="qualifications">Qualifications</label>
-                  <input
-                    id="qualifications"
-                    name="qualifications"
-                    placeholder="Your educational qualifications"
-                    value={form.qualifications}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+            {application.status === 'pending' && (
+              <>
+                <section className="ia-card">
+                  <h2>Instructor Assessment</h2>
 
-                <div className="ia-field">
-                  <label htmlFor="experience">
-                    Teaching or Professional Experience
-                  </label>
-                  <textarea
-                    id="experience"
-                    name="experience"
-                    placeholder="Describe your relevant experience"
-                    value={form.experience}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+                  {assessmentLoading ? (
+                    <p>Loading assessment...</p>
+                  ) : !assessment ? (
+                    <p>
+                      Assessment not created yet. Please wait for
+                      the admin to create an assessment.
+                    </p>
+                  ) : submitted && !retaking ? (
+                    <>
+                      <p>Assessment submitted successfully.</p>
+                      <h3>Score: {assessment.score}%</h3>
+                      <p>Attempts used: {attempts} / 3</p>
 
-                <div className="ia-field">
-                  <label htmlFor="portfolioUrl">Portfolio URL</label>
-                  <input
-                    id="portfolioUrl"
-                    name="portfolioUrl"
-                    type="url"
-                    placeholder="https://your-portfolio.com"
-                    value={form.portfolioUrl}
-                    onChange={handleChange}
-                  />
-                </div>
+                      {canRetake && (
+                        <>
+                          <p>
+                            A minimum score of 80% is required.
+                          </p>
 
-                <div className="ia-field">
-                  <label htmlFor="teachingIntroduction">
-                    Teaching Approach
-                  </label>
-                  <textarea
-                    id="teachingIntroduction"
-                    name="teachingIntroduction"
-                    placeholder="Introduce your teaching approach"
-                    value={form.teachingIntroduction}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+                          <button
+                            type="button"
+                            className="ia-button"
+                            disabled={actionLoading}
+                            onClick={() => {
+                              setAnswers([])
+                              setRetaking(true)
+                              clearFeedback()
+                            }}
+                          >
+                            Retake Assessment
+                          </button>
+                        </>
+                      )}
 
-                <button className="ia-button" type="submit">
-                  Submit Application
-                </button>
-              </form>
-            </>
-          )}
-        </section>
+                      {assessment.score < 80 && attempts >= 3 && (
+                        <p>
+                          Maximum attempts reached. Contact the
+                          admin for further assistance.
+                        </p>
+                      )}
+                    </>
+                  ) : !assessment.questions?.length ? (
+                    <p>No assessment questions available.</p>
+                  ) : (
+                    <form onSubmit={handleAssessmentSubmit}>
+                      {retaking && (
+                        <p>Retake attempt: {attempts + 1} / 3</p>
+                      )}
+
+                      {assessment.questions.map(
+                        (question, index) => (
+                          <div
+                            className="ia-question"
+                            key={question._id || index}
+                          >
+                            <h3>
+                              {index + 1}. {question.questionText}
+                            </h3>
+
+                            {question.options?.map(
+                              (option, optionIndex) => (
+                                <label
+                                  className="ia-option"
+                                  key={optionIndex}
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`question-${index}`}
+                                    checked={
+                                      answers[index] === optionIndex
+                                    }
+                                    onChange={() =>
+                                      selectAnswer(index, optionIndex)
+                                    }
+                                    required
+                                  />
+                                  {option}
+                                </label>
+                              )
+                            )}
+                          </div>
+                        )
+                      )}
+
+                      <button
+                        className="ia-button"
+                        type="submit"
+                        disabled={actionLoading}
+                      >
+                        {actionLoading
+                          ? 'Submitting...'
+                          : 'Submit Assessment'}
+                      </button>
+
+                      {retaking && (
+                        <button
+                          type="button"
+                          className="ia-button"
+                          disabled={actionLoading}
+                          onClick={() => {
+                            setRetaking(false)
+                            setAnswers([])
+                            clearFeedback()
+                          }}
+                        >
+                          Cancel Retake
+                        </button>
+                      )}
+                    </form>
+                  )}
+                </section>
+
+                {passed && (
+                  <section className="ia-card">
+                    <h2>Teaching Demo</h2>
+
+                    {application.teachingDemoUrl ? (
+                      <>
+                        <p>
+                          Teaching demo submitted successfully.
+                          Waiting for admin review.
+                        </p>
+
+                        <a
+                          href={application.teachingDemoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          View submitted teaching demo
+                        </a>
+                      </>
+                    ) : (
+                      <form onSubmit={handleDemoSubmit}>
+                        <div className="ia-field">
+                          <label htmlFor="demoUrl">
+                            Teaching Demo URL
+                          </label>
+
+                          <input
+                            id="demoUrl"
+                            type="url"
+                            value={demoUrl}
+                            onChange={e =>
+                              setDemoUrl(e.target.value)
+                            }
+                            placeholder="https://your-demo-link.com"
+                            required
+                          />
+                        </div>
+
+                        <button
+                          className="ia-button"
+                          type="submit"
+                          disabled={actionLoading}
+                        >
+                          {actionLoading
+                            ? 'Submitting...'
+                            : 'Submit Teaching Demo'}
+                        </button>
+                      </form>
+                    )}
+                  </section>
+                )}
+              </>
+            )}
+          </>
+        ) : null}
       </div>
     </div>
   )

@@ -47,10 +47,6 @@ function Register() {
 
                     <div className="auth-form-content">
                         <h1>Create an Account</h1>
-                        <p className="auth-subtitle">
-                            Start your learning journey with SkillWeave.
-                        </p>
-
                         <form onSubmit={handleSubmit}>
                             <div className="auth-field">
                                 <label>Full Name</label>
@@ -119,9 +115,6 @@ function Register() {
                         </p>
                     </div>
 
-                    <p className="auth-bottom-text">
-                        © 2026 SkillWeave. All rights reserved.
-                    </p>
                 </section>
 
                 <section className="auth-right">

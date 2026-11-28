@@ -1,72 +1,47 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import axiosInstance from '../../api/axiosInstance'
 
-import { useState } from 'react'
 import {
   Search,
   Plus,
   BookOpen,
-  Users,
-  Star,
-  MoreHorizontal,
   Pencil,
-  Eye
+  Eye,
+  Clock
 } from 'lucide-react'
 
 function InstructorCourses() {
+  const navigate = useNavigate()
+
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('All')
+  const [courses, setCourses] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const courses = [
-    {
-      id: 1,
-      title: 'Complete React.js Development',
-      category: 'Web Development',
-      students: 245,
-      rating: 4.8,
-      lessons: 32,
-      status: 'Published',
-      image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600'
-    },
-    {
-      id: 2,
-      title: 'JavaScript Fundamentals',
-      category: 'Programming',
-      students: 186,
-      rating: 4.7,
-      lessons: 24,
-      status: 'Published',
-      image: 'https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=600'
-    },
-    {
-      id: 3,
-      title: 'UI/UX Design Masterclass',
-      category: 'Design',
-      students: 124,
-      rating: 4.9,
-      lessons: 18,
-      status: 'Published',
-      image: 'https://images.unsplash.com/photo-1586717791821-3f44a563fa4c?w=600'
-    },
-    {
-      id: 4,
-      title: 'Node.js and Express',
-      category: 'Backend Development',
-      students: 0,
-      rating: 0,
-      lessons: 20,
-      status: 'Draft',
-      image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600'
-    },
-    {
-      id: 5,
-      title: 'MongoDB for Beginners',
-      category: 'Database',
-      students: 0,
-      rating: 0,
-      lessons: 15,
-      status: 'Draft',
-      image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600'
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await axiosInstance.get(
+          '/instructor/my-courses'
+        )
+
+        setCourses(response.data.courses || [])
+      } catch (err) {
+        setError(
+          err.response?.data?.message || 'Failed to load courses'
+        )
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+
+    fetchCourses()
+  }, [])
+
+  const formatStatus = (status) =>
+    status.charAt(0).toUpperCase() + status.slice(1)
 
   const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title
@@ -81,7 +56,6 @@ function InstructorCourses() {
 
   return (
     <div className="instructor-courses-page">
-
       <div className="instructor-courses-heading">
         <div>
           <span className="instructor-eyebrow">COURSE MANAGEMENT</span>
@@ -89,7 +63,10 @@ function InstructorCourses() {
           <p>Create, manage and track all your learning programs.</p>
         </div>
 
-        <button className="instructor-primary-btn">
+        <button
+          className="instructor-primary-btn"
+          onClick={() => navigate('/instructor/create-course')}
+        >
           <Plus size={18} />
           Create New Course
         </button>
@@ -112,7 +89,7 @@ function InstructorCourses() {
           </div>
           <div>
             <span>Published</span>
-            <h3>{courses.filter(c => c.status === 'Published').length}</h3>
+            <h3>{courses.filter(c => c.status === 'published').length}</h3>
           </div>
         </div>
 
@@ -122,19 +99,17 @@ function InstructorCourses() {
           </div>
           <div>
             <span>Drafts</span>
-            <h3>{courses.filter(c => c.status === 'Draft').length}</h3>
+            <h3>{courses.filter(c => c.status === 'draft').length}</h3>
           </div>
         </div>
 
         <div className="instructor-course-overview-card">
           <div className="instructor-course-overview-icon green">
-            <Users size={21} />
+            <Clock size={21} />
           </div>
           <div>
-            <span>Total Students</span>
-            <h3>
-              {courses.reduce((total, course) => total + course.students, 0)}
-            </h3>
+            <span>Pending Approval</span>
+            <h3>{courses.filter(c => c.status === 'pending').length}</h3>
           </div>
         </div>
       </div>
@@ -151,80 +126,63 @@ function InstructorCourses() {
         </div>
 
         <div className="instructor-course-filters">
-          {['All', 'Published', 'Draft'].map(item => (
+          {['All', 'published', 'draft', 'pending', 'rejected'].map(item => (
             <button
               key={item}
               className={filter === item ? 'active' : ''}
               onClick={() => setFilter(item)}
             >
-              {item}
+              {item === 'All' ? 'All' : formatStatus(item)}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="instructor-course-grid">
-        {filteredCourses.length > 0 ? (
-          filteredCourses.map(course => (
-            <div className="instructor-course-card" key={course.id}>
-              <div className="instructor-course-image">
-                <img src={course.image} alt={course.title} />
+      {loading ? (
+        <p role="status">Loading courses...</p>
+      ) : error ? (
+        <p role="alert">{error}</p>
+      ) : (
+        <div className="instructor-course-grid">
+          {filteredCourses.length > 0 ? (
+            filteredCourses.map(course => (
+              <div className="instructor-course-card" key={course._id}>
+                <div className="instructor-course-image">
+                  <BookOpen size={40} />
 
-                <span className={`instructor-course-status ${
-                  course.status === 'Published' ? 'published' : 'draft'
-                }`}>
-                  {course.status}
-                </span>
-
-                <button
-                  className="instructor-course-more"
-                  aria-label={`More options for ${course.title}`}
-                >
-                  <MoreHorizontal size={20} />
-                </button>
-              </div>
-
-              <div className="instructor-course-card-body">
-                <span className="instructor-course-category">
-                  {course.category}
-                </span>
-
-                <h3>{course.title}</h3>
-
-                <div className="instructor-course-meta">
-                  <span>
-                    <BookOpen size={15} />
-                    {course.lessons} Lessons
-                  </span>
-
-                  <span>
-                    <Users size={15} />
-                    {course.students} Students
+                  <span
+                    className={`instructor-course-status ${course.status}`}
+                  >
+                    {formatStatus(course.status)}
                   </span>
                 </div>
 
-                <div className="instructor-course-card-footer">
-                  <div className="instructor-course-rating">
-                    <Star size={15} fill="currentColor" />
-                    {course.rating ? course.rating : 'No ratings'}
+                <div className="instructor-course-card-body">
+                  <span className="instructor-course-category">
+                    {course.category}
+                  </span>
+
+                  <h3>{course.title}</h3>
+                  <p>{course.description}</p>
+
+                  <div className="instructor-course-meta">
+                    <span>
+                      <BookOpen size={15} />
+                      {course.level}
+                    </span>
                   </div>
-
-                  <button className="instructor-course-manage">
-                    Manage Course
-                  </button>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="instructor-course-empty">
+              <BookOpen size={35} />
+              <h3>No courses found</h3>
+              <p>Create a course or change your search and filters.</p>
             </div>
-          ))
-        ) : (
-          <div className="instructor-course-empty">
-            <BookOpen size={35} />
-            <h3>No courses found</h3>
-            <p>Try another search term or change the filter.</p>
-          </div>
-        )}
-      </div>
-
+          )}
+        </div>
+      )}
     </div>
   )
 }

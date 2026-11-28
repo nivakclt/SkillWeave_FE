@@ -1,5 +1,5 @@
-
-import { useState } from 'react'
+import axiosInstance from '../../api/axiosInstance'
+import { useState, useRef } from 'react'
 import {
   ArrowLeft,
   ImagePlus,
@@ -12,7 +12,11 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 function CreateCourse() {
+  const thumbnailInputRef = useRef(null)
   const navigate = useNavigate()
+  const [message, setMessage] = useState('')
+const [error, setError] = useState('')
+const [loading, setLoading] = useState(false)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -20,8 +24,6 @@ function CreateCourse() {
     description: '',
     category: '',
     level: 'Beginner',
-    language: 'English',
-    price: '',
     objectives: [''],
     requirements: ['']
   })
@@ -63,23 +65,98 @@ function CreateCourse() {
   }
 
   const handleThumbnail = (e) => {
-    const file = e.target.files[0]
+  const file = e.target.files?.[0]
 
-    if (file) {
-      setThumbnail(file)
-      setThumbnailPreview(URL.createObjectURL(file))
+  if (file) {
+    if (thumbnailPreview) {
+      URL.revokeObjectURL(thumbnailPreview)
     }
+
+    setThumbnail(file)
+    setThumbnailPreview(URL.createObjectURL(file))
   }
+}
+if (
+  !formData.title.trim() ||
+  !formData.description.trim() ||
+  !formData.category
+) {
+  setError('Title, description and category are required')
+  setMessage('')
+  return
+}
+const handleSubmit = async (e, status = 'pending') => {
+  e.preventDefault()
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  if (loading) return
 
-    console.log('Course form data:', formData)
-    console.log('Course thumbnail:', thumbnail)
+  setMessage('')
+  setError('')
+  setLoading(true)
 
-    alert('UI completed! Backend integration will be added later.')
+  try {
+    const response = await axiosInstance.post(
+      '/instructor/create-course',
+      {
+        ...formData,
+        objectives: formData.objectives
+          .map(item => item.trim())
+          .filter(Boolean),
+        requirements: formData.requirements
+          .map(item => item.trim())
+          .filter(Boolean),
+        status
+      }
+    )
+
+    // Show success message
+    setMessage(
+      status === 'draft'
+        ? 'Course saved as draft successfully!'
+        : 'Course created and submitted for approval successfully!'
+    )
+
+    // Clear all form fields
+    setFormData({
+      title: '',
+      subtitle: '',
+      description: '',
+      category: '',
+      level: 'Beginner',
+      objectives: [''],
+      requirements: ['']
+    })
+
+    // Clear thumbnail preview
+    if (thumbnailPreview) {
+      URL.revokeObjectURL(thumbnailPreview)
+    }
+
+    setThumbnail(null)
+setThumbnailPreview('')
+
+if (thumbnailInputRef.current) {
+  thumbnailInputRef.current.value = ''
+}
+
+    // Scroll to the success message
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+
+  } catch (err) {
+    const data = err.response?.data
+
+    setError(
+      typeof data === 'string'
+        ? data
+        : data?.message || 'Failed to create course'
+    )
+  } finally {
+    setLoading(false)
   }
-
+}
   return (
     <div className="instructor-create-page">
 
@@ -102,9 +179,18 @@ function CreateCourse() {
           <BookOpen size={28} />
         </div>
       </div>
+{message && (
+  <div className="course-success-alert" role="status">
+    {message}
+  </div>
+)}
 
-      <form onSubmit={handleSubmit}>
-
+{error && (
+  <div className="course-error-alert" role="alert">
+    {error}
+  </div>
+)}
+<form onSubmit={(e) => handleSubmit(e, 'pending')}>
         <div className="instructor-create-grid">
 
           <div className="instructor-create-main">
@@ -260,11 +346,12 @@ function CreateCourse() {
                 )}
 
                 <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={handleThumbnail}
-                  hidden
-                />
+  ref={thumbnailInputRef}
+  type="file"
+  accept="image/png,image/jpeg,image/webp"
+  onChange={handleThumbnail}
+  hidden
+/>
               </label>
             </section>
 
@@ -308,32 +395,6 @@ function CreateCourse() {
                   <option>All Levels</option>
                 </select>
               </div>
-
-              <div className="instructor-form-group">
-                <label>Language</label>
-                <select
-                  name="language"
-                  value={formData.language}
-                  onChange={handleChange}
-                >
-                  <option>English</option>
-                  <option>Malayalam</option>
-                  <option>Hindi</option>
-                </select>
-              </div>
-
-              <div className="instructor-form-group">
-                <label>Course Price (₹) *</label>
-                <input
-                  type="number"
-                  name="price"
-                  min="0"
-                  value={formData.price}
-                  onChange={handleChange}
-                  placeholder="Enter course price"
-                  required
-                />
-              </div>
             </section>
 
           </div>
@@ -341,19 +402,24 @@ function CreateCourse() {
         </div>
 
         <div className="instructor-create-actions">
-          <button
-            type="button"
-            className="instructor-save-draft-btn"
-            onClick={handleSubmit}
-          >
-            <Save size={17} />
-            Save as Draft
-          </button>
+         <button
+  type="button"
+  className="instructor-save-draft-btn"
+  onClick={(e) => handleSubmit(e, 'draft')}
+  disabled={loading}
+>
+  <Save size={17} />
+  Save as Draft
+</button>
 
-          <button type="submit" className="instructor-publish-btn">
-            <Send size={16} />
-            Publish Course
-          </button>
+<button
+  type="submit"
+  className="instructor-publish-btn"
+  disabled={loading}
+>
+  <Send size={16} />
+  {loading ? 'Submitting...' : 'Submit for Approval'}
+</button>
         </div>
 
       </form>
